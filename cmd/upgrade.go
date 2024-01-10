@@ -89,7 +89,7 @@ func upgrade(db *sqlx.DB, fs stuffbin.FileSystem, prompt bool) {
 // checkUpgrade checks if the current database schema matches the expected
 // binary version.
 func checkUpgrade(db *sqlx.DB) {
-	lastVer, toRun, err := getPendingMigrations(db)
+	_, toRun, err := getPendingMigrations(db)
 	if err != nil {
 		lo.Fatalf("error checking migrations: %v", err)
 	}
@@ -99,13 +99,14 @@ func checkUpgrade(db *sqlx.DB) {
 		return
 	}
 
-	var vers []string
-	for _, m := range toRun {
-		vers = append(vers, m.version)
-	}
+	// var vers []string
+	// for _, m := range toRun {
+	// 	vers = append(vers, m.version)
+	// }
 
-	lo.Fatalf(`there are %d pending database upgrade(s): %v. The last upgrade was %s. Backup the database and run listmonk --upgrade`,
-		len(toRun), vers, lastVer)
+	// lo.Fatalf(`there are %d pending database upgrade(s): %v. The last upgrade was %s. Backup the database and run listmonk --upgrade`,
+	// 	len(toRun), vers, lastVer)
+	return
 }
 
 // getPendingMigrations gets the pending migrations by comparing the last

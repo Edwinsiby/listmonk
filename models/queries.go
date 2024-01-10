@@ -11,6 +11,11 @@ import (
 
 // Queries contains all prepared SQL queries.
 type Queries struct {
+	AddSubscriberViewData       *sqlx.Stmt `query:"insert-subscriber-view-data"`
+	AddSubscriberClickData      *sqlx.Stmt `query:"insert-subscriber-click-data"`
+	RetrieveSubscriberViewData  *sqlx.Stmt `query:"retrieve-subscriber-view-data"`
+	RetrieveSubsrciberClickData *sqlx.Stmt `query:"retrieve-subscriber-click-data"`
+
 	GetDashboardCharts *sqlx.Stmt `query:"get-dashboard-charts"`
 	GetDashboardCounts *sqlx.Stmt `query:"get-dashboard-counts"`
 

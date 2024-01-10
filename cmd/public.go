@@ -9,8 +9,10 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/knadh/listmonk/internal/i18n"
 	"github.com/knadh/listmonk/internal/manager"
@@ -514,14 +516,53 @@ func handleLinkRedirect(c echo.Context) error {
 	)
 
 	// If individual tracking is disabled, do not record the subscriber ID.
-	if !app.constants.Privacy.IndividualTracking {
-		subUUID = ""
-	}
+	// if !app.constants.Privacy.IndividualTracking {
+	// 	subUUID = ""
+	// }
 
 	url, err := app.core.RegisterCampaignLinkClick(linkUUID, campUUID, subUUID)
 	if err != nil {
 		e := err.(*echo.HTTPError)
+		lo.Println(e)
 		return c.Render(e.Code, tplMessage, makeMsgTpl(app.i18n.T("public.errorTitle"), "", e.Error()))
+
+	}
+
+	sub, err := app.core.GetSubscriber(0, subUUID, "")
+	if err != nil {
+		app.log.Printf("error fetching subscriber data: %s", err)
+		if err == sql.ErrNoRows {
+			e := err.(*echo.HTTPError)
+			lo.Println(e)
+		}
+	}
+
+	campaign, err := app.core.GetCampaign(0, campUUID)
+	if err != nil {
+		app.log.Printf("error fetching campaign data: %s", err)
+		if err == sql.ErrNoRows {
+			e := err.(*echo.HTTPError)
+			lo.Println(e)
+		}
+	}
+
+	urlPath := extractUrl(url)
+
+	subData := models.SubscriberData{
+		SubscriberUUID:  subUUID,
+		SubscriberID:    sub.ID,
+		CampaignUUID:    campUUID,
+		SubscriberEmail: sub.Email,
+		EmailView:       true,
+		EmailViewTime:   time.Now(),
+		ClickedLinks:    []string{urlPath},
+		CampaignName:    campaign.Name,
+	}
+
+	if err = app.core.AddSubscriberClickData(subData); err != nil {
+		app.log.Printf("error adding subscriber click event data: %s", err)
+		e := err.(*echo.HTTPError)
+		lo.Println(e)
 	}
 
 	return c.Redirect(http.StatusTemporaryRedirect, url)
@@ -539,15 +580,49 @@ func handleRegisterCampaignView(c echo.Context) error {
 	)
 
 	// If individual tracking is disabled, do not record the subscriber ID.
-	if !app.constants.Privacy.IndividualTracking {
-		subUUID = ""
-	}
+	// if !app.constants.Privacy.IndividualTracking {
+	// 	subUUID = ""
+	// }
 
 	// Exclude dummy hits from template previews.
 	if campUUID != dummyUUID && subUUID != dummyUUID {
 		if err := app.core.RegisterCampaignView(campUUID, subUUID); err != nil {
 			app.log.Printf("error registering campaign view: %s", err)
 		}
+	}
+	sub, err := app.core.GetSubscriber(0, subUUID, "")
+	if err != nil {
+		app.log.Printf("error fetching subscriber data: %s", err)
+		if err == sql.ErrNoRows {
+			e := err.(*echo.HTTPError)
+			lo.Println(e)
+		}
+	}
+
+	campaign, err := app.core.GetCampaign(0, campUUID)
+	if err != nil {
+		app.log.Printf("error fetching campaign data: %s", err)
+		if err == sql.ErrNoRows {
+			e := err.(*echo.HTTPError)
+			lo.Println(e)
+		}
+	}
+
+	subData := models.SubscriberData{
+		SubscriberUUID:  subUUID,
+		SubscriberID:    sub.ID,
+		CampaignUUID:    campUUID,
+		SubscriberEmail: sub.Email,
+		EmailView:       true,
+		EmailViewTime:   time.Now(),
+		ClickedLinks:    []string{},
+		CampaignName:    campaign.Name,
+	}
+
+	if err = app.core.AddSubscriberViewData(subData); err != nil {
+		app.log.Printf("error adding subscriber view event data: %s", err)
+		e := err.(*echo.HTTPError)
+		lo.Println(e)
 	}
 
 	c.Response().Header().Set("Cache-Control", "no-cache")
@@ -637,6 +712,32 @@ func handleWipeSubscriberData(c echo.Context) error {
 		makeMsgTpl(app.i18n.T("public.dataRemovedTitle"), "", app.i18n.T("public.dataRemoved")))
 }
 
+func handleGetClickData(c echo.Context) error {
+	var (
+		app      = c.Get("app").(*App)
+		campUUID = c.Param("campUUID")
+	)
+
+	out, err := app.core.RetrieveSubscriberClickData(campUUID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+func handleGetViewData(c echo.Context) error {
+	var (
+		app      = c.Get("app").(*App)
+		campUUID = c.Param("campUUID")
+	)
+
+	out, err := app.core.RetrieveSubscriberViewData(campUUID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
 // drawTransparentImage draws a transparent PNG of given dimensions
 // and returns the PNG bytes.
 func drawTransparentImage(h, w int) []byte {
@@ -720,4 +821,21 @@ func processSubForm(c echo.Context) (bool, error) {
 	}
 
 	return hasOptin, nil
+}
+
+//helper function to extract host and path from url
+
+func extractUrl(urlString string) string {
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		return urlString
+	}
+	host := parsedURL.Host
+	path := parsedURL.Path
+	host = strings.TrimPrefix(host, "www.")
+	host = strings.TrimSuffix(host, ".com")
+
+	extractedUrl := host + path
+
+	return extractedUrl
 }

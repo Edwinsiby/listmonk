@@ -164,7 +164,7 @@ func initFS(appDir, frontendDir, staticDir, i18nDir string) stuffbin.FileSystem 
 
 		// These paths are joined with appDir.
 		appFiles = []string{
-			"./config.toml.sample:config.toml.sample",
+			"./config.toml:config.toml",
 			"./queries.sql:queries.sql",
 			"./schema.sql:schema.sql",
 		}
@@ -316,8 +316,9 @@ func readQueries(sqlFile string, db *sqlx.DB, fs stuffbin.FileSystem) goyesql.Qu
 // prepareQueries queries prepares a query map and returns a *Queries
 func prepareQueries(qMap goyesql.Queries, db *sqlx.DB, ko *koanf.Koanf) *models.Queries {
 	var (
-		countQuery = "get-campaign-analytics-counts"
-		linkSel    = "*"
+		countQuery     = "get-campaign-analytics-counts"
+		clickDataQuery = "insert-subscriber-click-data"
+		linkSel        = "*"
 	)
 	if ko.Bool("privacy.individual_tracking") {
 		countQuery = "get-campaign-analytics-unique-counts"
@@ -333,6 +334,11 @@ func prepareQueries(qMap goyesql.Queries, db *sqlx.DB, ko *koanf.Koanf) *models.
 		Query: fmt.Sprintf(qMap[countQuery].Query, "link_clicks"),
 		Tags:  map[string]string{"name": "get-campaign-click-counts"},
 	}
+	qMap["insert-subscriber-click-data"] = &goyesql.Query{
+		Query: fmt.Sprintf(qMap[clickDataQuery].Query),
+		Tags:  map[string]string{"name": "insert-subscriber-click-data"},
+	}
+
 	qMap["get-campaign-link-counts"].Query = fmt.Sprintf(qMap["get-campaign-link-counts"].Query, linkSel)
 
 	// Scan and prepare all queries.

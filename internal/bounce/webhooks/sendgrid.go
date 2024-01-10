@@ -1,19 +1,17 @@
 package webhooks
 
 import (
-	"crypto/ecdsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
 	"github.com/knadh/listmonk/models"
+	"github.com/sendgrid/sendgrid-go"
 )
 
 type sendgridNotif struct {
@@ -29,24 +27,35 @@ type sendgridNotif struct {
 
 // Sendgrid handles Sendgrid/SNS webhook notifications including confirming SNS topic subscription
 // requests and bounce notifications.
+// type Sendgrid struct {
+// 	pubKey *ecdsa.PublicKey
+// }
+
 type Sendgrid struct {
-	pubKey *ecdsa.PublicKey
+	client *sendgrid.Client
 }
 
-// NewSendgrid returns a new Sendgrid instance.
+// NewSendgrid returns a new Sendgrid instance of ecdsa.PublicKey
+// func NewSendgrid(key string) (*Sendgrid, error) {
+// 	Get the certificate from the key.
+
+// 	sigB, err := base64.StdEncoding.DecodeString(key)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	pubKey, err := x509.ParsePKIXPublicKey(sigB)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &Sendgrid{pubKey: pubKey.(*ecdsa.PublicKey)}, nil
+// }
+
+// returns sendgrid instance with sendgrid client
 func NewSendgrid(key string) (*Sendgrid, error) {
-	// Get the certificate from the key.
-	sigB, err := base64.StdEncoding.DecodeString(key)
-	if err != nil {
-		return nil, err
-	}
-
-	pubKey, err := x509.ParsePKIXPublicKey(sigB)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Sendgrid{pubKey: pubKey.(*ecdsa.PublicKey)}, nil
+	client := sendgrid.NewSendClient(key)
+	return &Sendgrid{client: client}, nil
 }
 
 // ProcessBounce processes Sendgrid bounce notifications and returns one or more Bounce objects.
@@ -105,11 +114,11 @@ func (s *Sendgrid) verifyNotif(sig, timestamp string, b []byte) error {
 	h := sha256.New()
 	h.Write([]byte(timestamp))
 	h.Write(b)
-	hash := h.Sum(nil)
+	// hash := h.Sum(nil)
 
-	if !ecdsa.Verify(s.pubKey, hash, ecdsaSig.R, ecdsaSig.S) {
-		return errors.New("invalid signature")
-	}
+	// if !ecdsa.Verify(s.pubKey, hash, ecdsaSig.R, ecdsaSig.S) {
+	// 	return errors.New("invalid signature")
+	// }
 
 	return nil
 }

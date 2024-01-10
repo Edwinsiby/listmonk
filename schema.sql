@@ -8,6 +8,7 @@ DROP TYPE IF EXISTS content_type CASCADE; CREATE TYPE content_type AS ENUM ('ric
 DROP TYPE IF EXISTS bounce_type CASCADE; CREATE TYPE bounce_type AS ENUM ('soft', 'hard', 'complaint');
 DROP TYPE IF EXISTS template_type CASCADE; CREATE TYPE template_type AS ENUM ('campaign', 'tx');
 
+
 -- subscribers
 DROP TABLE IF EXISTS subscribers CASCADE;
 CREATE TABLE subscribers (
@@ -278,3 +279,29 @@ DROP INDEX IF EXISTS idx_bounces_sub_id; CREATE INDEX idx_bounces_sub_id ON boun
 DROP INDEX IF EXISTS idx_bounces_camp_id; CREATE INDEX idx_bounces_camp_id ON bounces(campaign_id);
 DROP INDEX IF EXISTS idx_bounces_source; CREATE INDEX idx_bounces_source ON bounces(source);
 DROP INDEX IF EXISTS idx_bounces_date; CREATE INDEX idx_bounces_date ON bounces((TIMEZONE('UTC', created_at)::DATE));
+
+
+-- event_data
+DROP TABLE IF EXISTS event_data CASCADE;
+CREATE TABLE event_data (
+    id              SERIAL PRIMARY KEY,
+    subscriber_uuid UUID NOT NULL,
+    subscriber_id   INT NOT NULL,
+    campaign_uuid   UUID NOT NULL,
+    campaign_name   TEXT NOT NULL,
+    email           TEXT NOT NULL,
+    email_view      BOOLEAN NOT NULL,
+    email_viewed_at TIMESTAMP WITH TIME ZONE,
+    clicked_links   TEXT[] NOT NULL DEFAULT '{}',
+
+    CONSTRAINT fk_event_data_campaign FOREIGN KEY (campaign_uuid) REFERENCES campaigns(uuid),
+    CONSTRAINT fk_event_data_subscriber FOREIGN KEY (email) REFERENCES subscribers(email),
+    CONSTRAINT unique_campaign_email UNIQUE (campaign_uuid, email),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+
+CREATE INDEX idx_event_data_email ON event_data(email);
+CREATE INDEX idx_event_data_campaign ON event_data(campaign_uuid);

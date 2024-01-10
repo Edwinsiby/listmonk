@@ -408,6 +408,41 @@ type TxMessage struct {
 	SubjectTpl *txttpl.Template   `json:"-"`
 }
 
+type SubscriberData struct {
+	SubscriberUUID  string      `db:"subscriber_uuid"`
+	SubscriberID    int         `db:"subscriber_id"`
+	CampaignUUID    string      `db:"campaign_uuid"`
+	CampaignName    string      `db:"campaign_name"`
+	SubscriberEmail string      `db:"email"`
+	EmailView       bool        `db:"email_view"`
+	EmailViewTime   time.Time   `db:"email_viewed_at"`
+	ClickedLinks    StringArray `db:"clicked_links"`
+}
+
+type StringArray []string
+
+func (a *StringArray) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case nil:
+		*a = nil
+	case []byte:
+		if string(v) == "{}" {
+			*a = nil
+		} else {
+			var arr []string
+			err := json.Unmarshal(v, &arr)
+			if err != nil {
+				*a = []string{string(v)}
+			} else {
+				*a = arr
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported type for StringArray: %T", value)
+	}
+	return nil
+}
+
 // markdown is a global instance of Markdown parser and renderer.
 var markdown = goldmark.New(
 	goldmark.WithParserOptions(

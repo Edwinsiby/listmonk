@@ -234,6 +234,7 @@ func handleCreateCampaign(c echo.Context) error {
 // handleUpdateCampaign handles campaign modification.
 // Campaigns that are done cannot be modified.
 func handleUpdateCampaign(c echo.Context) error {
+
 	var (
 		app   = c.Get("app").(*App)
 		id, _ = strconv.Atoi(c.Param("id"))
@@ -269,6 +270,11 @@ func handleUpdateCampaign(c echo.Context) error {
 
 	out, err := app.core.UpdateCampaign(id, o.Campaign, o.ListIDs, o.MediaIDs, o.SendLater)
 	if err != nil {
+		return err
+	}
+
+	if err = app.core.UpdateSubscriberData(); err != nil {
+
 		return err
 	}
 

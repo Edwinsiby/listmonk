@@ -2,6 +2,7 @@ package core
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -20,6 +21,24 @@ const (
 	campaignTplDefault = "default"
 	campaignTplArchive = "archive"
 )
+
+// Updates the subsscriber data of email events
+func (c *Core) UpdateSubscriberData() error {
+
+	fmt.Println("hii")
+
+	query := `
+		INSERT INTO subscriber_data 
+		(subscriber_uuid, subscriber_id, campaign_uuid, email, email_view, email_viewed_at, clicked_links, template_name) 
+		VALUES 
+		(:subscriber_uuid, :subscriber_id, :campaign_uuid, :email, :email_view, :email_viewed_at, :clicked_links, :template_name)
+	`
+	_, err := c.db.Exec(query)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // QueryCampaigns retrieves paginated campaigns optionally filtering them by the given arbitrary
 // query expression. It also returns the total number of records in the DB.
@@ -409,7 +428,6 @@ func (c *Core) RegisterCampaignLinkClick(linkUUID, campUUID, subUUID string) (st
 		c.log.Printf("error registering link click: %s", err)
 		return "", echo.NewHTTPError(http.StatusInternalServerError, c.i18n.Ts("public.errorProcessingRequest"))
 	}
-
 	return url, nil
 }
 
@@ -431,4 +449,52 @@ func (c *Core) DeleteCampaignLinkClicks(before time.Time) error {
 	}
 
 	return nil
+}
+
+func (c *Core) AddSubscriberClickData(s models.SubscriberData) error {
+	clickedLinksArray, err := pq.Array(s.ClickedLinks).Value()
+	if err != nil {
+		c.log.Printf("error parsing links: %s", err)
+	}
+
+	if _, err := c.q.AddSubscriberClickData.Exec(s.SubscriberUUID, s.SubscriberID, s.CampaignUUID, s.CampaignName, s.SubscriberEmail, s.EmailView, s.EmailViewTime, clickedLinksArray); err != nil {
+		c.log.Printf("error adding subscriber click data: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, c.i18n.Ts("public.errorProcessingRequest"))
+	}
+
+	return nil
+}
+
+func (c *Core) AddSubscriberViewData(s models.SubscriberData) error {
+	if _, err := c.q.AddSubscriberViewData.Exec(s.SubscriberUUID, s.SubscriberID, s.CampaignUUID, s.CampaignName, s.SubscriberEmail, s.EmailView, s.EmailViewTime); err != nil {
+		c.log.Printf("error adding subscriber click data: %s", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, c.i18n.Ts("public.errorProcessingRequest"))
+	}
+
+	return nil
+}
+
+func (c *Core) RetrieveSubscriberClickData(campUUID string) ([]models.SubscriberData, error) {
+	var out []models.SubscriberData
+	err := c.q.RetrieveSubsrciberClickData.Select(&out, campUUID)
+	if err != nil {
+		c.log.Printf("error retrieving subscriber click data: %s", err)
+	}
+	if len(out) == 0 {
+		return []models.SubscriberData{}, echo.NewHTTPError(http.StatusNotFound, "data not found", err)
+	}
+
+	return out, nil
+}
+
+func (c *Core) RetrieveSubscriberViewData(campUUID string) ([]models.SubscriberData, error) {
+	var out []models.SubscriberData
+	err := c.q.RetrieveSubscriberViewData.Select(&out, campUUID)
+	if err != nil {
+		c.log.Printf("error retrieving subscriber view data: %s", err)
+	}
+	if len(out) == 0 {
+		return []models.SubscriberData{}, echo.NewHTTPError(http.StatusNotFound, "data not found", err)
+	}
+	return out, nil
 }

@@ -1090,3 +1090,27 @@ DELETE FROM bounces WHERE subscriber_id = (SELECT id FROM sub);
 -- name: get-db-info
 SELECT JSON_BUILD_OBJECT('version', (SELECT VERSION()),
                         'size_mb', (SELECT ROUND(pg_database_size((SELECT CURRENT_DATABASE()))/(1024^2)))) AS info;
+
+
+-- name: insert-subscriber-click-data
+INSERT INTO event_data (subscriber_uuid, subscriber_id, campaign_uuid, campaign_name, email, email_view, email_viewed_at, clicked_links)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (campaign_uuid, email) DO UPDATE
+SET clicked_links = event_data.clicked_links || EXCLUDED.clicked_links
+RETURNING id;
+
+-- name: insert-subscriber-view-data
+INSERT INTO event_data (subscriber_uuid, subscriber_id, campaign_uuid, campaign_name, email, email_view, email_viewed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (campaign_uuid, email)
+DO NOTHING
+RETURNING id;
+
+-- name: retrieve-subscriber-click-data
+SELECT id,subscriber_uuid,subscriber_id,campaign_uuid,campaign_name,email,email_view,email_viewed_at,clicked_links
+FROM event_data WHERE campaign_uuid = $1;
+
+-- name: retrieve-subscriber-view-data
+SELECT id,subscriber_uuid,subscriber_id,campaign_uuid,campaign_name,email,email_view,email_viewed_at,clicked_links
+FROM event_data WHERE campaign_uuid = $1 AND email_view = true AND clicked_links = '{}';
+

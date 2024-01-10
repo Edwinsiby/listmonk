@@ -125,6 +125,7 @@ func init() {
 
 	// Connect to the database, load the filesystem to read SQL queries.
 	db = initDB()
+
 	fs = initFS(appDir, frontendDir, ko.String("static-dir"), ko.String("i18n-dir"))
 
 	// Installer mode? This runs before the SQL queries are loaded and prepared

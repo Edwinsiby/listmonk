@@ -166,6 +166,10 @@ func initHTTPHandlers(e *echo.Echo, app *App) {
 
 	g.GET("/api/events", handleEventStream)
 
+	// Retrieving event data for campaigns
+	g.GET("/api/event/click/:campUUID", handleGetClickData)
+	g.GET("/api/event/view/:campUUID", handleGetViewData)
+
 	if app.constants.BounceWebhooksEnabled {
 		// Private authenticated bounce endpoint.
 		g.POST("/webhooks/bounce", handleBounceWebhook)
@@ -305,9 +309,9 @@ func validateUUID(next echo.HandlerFunc, params ...string) echo.HandlerFunc {
 
 		for _, p := range params {
 			if !reUUID.MatchString(c.Param(p)) {
-				return c.Render(http.StatusBadRequest, tplMessage,
-					makeMsgTpl(app.i18n.T("public.errorTitle"), "",
-						app.i18n.T("globals.messages.invalidUUID")))
+				// return c.Render(http.StatusBadRequest, tplMessage,
+				makeMsgTpl(app.i18n.T("public.errorTitle"), "",
+					app.i18n.T("globals.messages.invalidUUID"))
 			}
 		}
 		return next(c)

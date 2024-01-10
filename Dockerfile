@@ -1,8 +1,15 @@
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates tzdata
+
+RUN apk --no-cache add ca-certificates tzdata make
+
+RUN apk --no-cache add go
+
 WORKDIR /listmonk
-COPY listmonk .
-COPY config.toml.sample config.toml
-COPY config-demo.toml .
+
+COPY . .
+
+RUN go build -o listmonk cmd/*.go
+
+EXPOSE 9001
+
 CMD ["./listmonk"]
-EXPOSE 9000

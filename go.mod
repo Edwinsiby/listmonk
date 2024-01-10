@@ -28,6 +28,7 @@ require (
 	github.com/mailru/easyjson v0.7.7
 	github.com/paulbellamy/ratecounter v0.2.0
 	github.com/rhnvrm/simples3 v0.8.3
+	github.com/sendgrid/sendgrid-go v3.14.0+incompatible
 	github.com/spf13/pflag v1.0.5
 	github.com/yuin/goldmark v1.5.4
 	golang.org/x/mod v0.9.0
@@ -52,6 +53,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
+	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
