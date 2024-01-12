@@ -139,7 +139,9 @@ func init() {
 	if ok, err := checkSchema(db); err != nil {
 		log.Fatalf("error checking schema in DB: %v", err)
 	} else if !ok {
-		lo.Fatal("the database does not appear to be setup. Run --install.")
+		lo.Println("the database does not appear to be setup. installing the schemas.")
+		install(migList[len(migList)-1].version, db, fs, !ko.Bool("yes"), ko.Bool("idempotent"))
+		os.Exit(0)
 	}
 
 	if ko.Bool("upgrade") {
