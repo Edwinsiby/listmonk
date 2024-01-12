@@ -39,6 +39,7 @@ import (
 	"github.com/knadh/listmonk/models"
 	"github.com/knadh/stuffbin"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/lib/pq"
 	flag "github.com/spf13/pflag"
 )
@@ -122,16 +123,10 @@ func initFlags() {
 	}
 
 	// Register the commandline flags.
-	f.StringSlice("config", []string{"config.toml"},
-		"path to one or more config files (will be merged in order)")
-	f.Bool("install", false, "setup database (first time)")
-	f.Bool("idempotent", false, "make --install run only if the database isn't already setup")
-	f.Bool("upgrade", false, "upgrade database to the current version")
+	f.StringSlice("config", []string{"config.toml"}, "path to one or more config files (will be merged in order)")
 	f.Bool("version", false, "show current version of the build")
-	f.Bool("new-config", false, "generate sample config file")
 	f.String("static-dir", "", "(optional) path to directory with static files")
 	f.String("i18n-dir", "", "(optional) path to directory with i18n language files")
-	f.Bool("yes", false, "assume 'yes' to prompts during --install/upgrade")
 	f.Bool("passive", false, "run in passive mode where campaigns are not processed")
 	if err := f.Parse(os.Args[1:]); err != nil {
 		lo.Fatalf("error loading flags: %v", err)
@@ -157,7 +152,8 @@ func initConfigFiles(files []string, ko *koanf.Koanf) {
 
 // initFileSystem initializes the stuffbin FileSystem to provide
 // access to bundled static assets to the app.
-func initFS(appDir, frontendDir, staticDir, i18nDir string) stuffbin.FileSystem {
+
+func initFS(appDir, staticDir, i18nDir string) stuffbin.FileSystem {
 	var (
 		// stuffbin real_path:virtual_alias paths to map local assets on disk
 		// when there an embedded filestystem is not found.
@@ -167,12 +163,6 @@ func initFS(appDir, frontendDir, staticDir, i18nDir string) stuffbin.FileSystem 
 			"./config.toml:config.toml",
 			"./queries.sql:queries.sql",
 			"./schema.sql:schema.sql",
-		}
-
-		frontendFiles = []string{
-			// Admin frontend's static assets accessible at /admin/* during runtime.
-			// These paths are sourced from frontendDir.
-			"./:/admin",
 		}
 
 		staticFiles = []string{
@@ -188,64 +178,48 @@ func initFS(appDir, frontendDir, staticDir, i18nDir string) stuffbin.FileSystem 
 	)
 
 	// Get the executable's execPath.
-	execPath, err := os.Executable()
+
+	hasEmbed := false
+
+	fs, err := stuffbin.NewLocalFS("/")
 	if err != nil {
-		lo.Fatalf("error getting executable path: %v", err)
-	}
-
-	// Load embedded files in the executable.
-	hasEmbed := true
-	fs, err := stuffbin.UnStuff(execPath)
-	if err != nil {
-		hasEmbed = false
-
-		// Running in local mode. Load local assets into
-		// the in-memory stuffbin.FileSystem.
-		lo.Printf("unable to initialize embedded filesystem (%v). Using local filesystem", err)
-
-		fs, err = stuffbin.NewLocalFS("/")
-		if err != nil {
-			lo.Fatalf("failed to initialize local file for assets: %v", err)
-		}
+		lo.Fatalf("failed to initialize local file for assets: %v", err)
 	}
 
 	// If the embed failed, load app and frontend files from the compile-time paths.
 	files := []string{}
 	if !hasEmbed {
 		files = append(files, joinFSPaths(appDir, appFiles)...)
-		files = append(files, joinFSPaths(frontendDir, frontendFiles)...)
+		// files = append(files, joinFSPaths(frontendDir, frontendFiles)...)
 	}
 
 	// Irrespective of the embeds, if there are user specified static or i18n paths,
 	// load files from there and override default files (embedded or picked up from CWD).
-	if !hasEmbed || i18nDir != "" {
-		if i18nDir == "" {
-			// Default dir in cwd.
-			i18nDir = "i18n"
-		}
-		lo.Printf("loading i18n files from: %v", i18nDir)
-		files = append(files, joinFSPaths(i18nDir, i18nFiles)...)
-	}
 
-	if !hasEmbed || staticDir != "" {
-		if staticDir == "" {
-			// Default dir in cwd.
-			staticDir = "static"
-		} else {
-			// There is a custom static directory. Any paths that aren't in it, exclude.
-			sf := []string{}
-			for _, def := range staticFiles {
-				s := strings.Split(def, ":")[0]
-				if _, err := os.Stat(path.Join(staticDir, s)); err == nil {
-					sf = append(sf, def)
-				}
+	if i18nDir == "" {
+		// Default dir in cwd.
+		i18nDir = "i18n"
+	}
+	lo.Printf("loading i18n files from: %v", i18nDir)
+	files = append(files, joinFSPaths(i18nDir, i18nFiles)...)
+
+	if staticDir == "" {
+		// Default dir in cwd.
+		staticDir = "static"
+	} else {
+		// There is a custom static directory. Any paths that aren't in it, exclude.
+		sf := []string{}
+		for _, def := range staticFiles {
+			s := strings.Split(def, ":")[0]
+			if _, err := os.Stat(path.Join(staticDir, s)); err == nil {
+				sf = append(sf, def)
 			}
-			staticFiles = sf
 		}
-
-		lo.Printf("loading static files from: %v", staticDir)
-		files = append(files, joinFSPaths(staticDir, staticFiles)...)
+		staticFiles = sf
 	}
+
+	lo.Printf("loading static files from: %v", staticDir)
+	files = append(files, joinFSPaths(staticDir, staticFiles)...)
 
 	// No additional files to load.
 	if len(files) == 0 {
@@ -748,6 +722,11 @@ func initHTTPServer(app *App) *echo.Echo {
 	// Initialize the HTTP server.
 	var srv = echo.New()
 	srv.HideBanner = true
+
+	srv.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
 
 	// Register app (*App) to be injected into all HTTP handlers.
 	srv.Use(func(next echo.HandlerFunc) echo.HandlerFunc {

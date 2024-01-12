@@ -833,7 +833,6 @@ func extractUrl(urlString string) string {
 	host := parsedURL.Host
 	path := parsedURL.Path
 	host = strings.TrimPrefix(host, "www.")
-	host = strings.TrimSuffix(host, ".com")
 
 	extractedUrl := host + path
 
